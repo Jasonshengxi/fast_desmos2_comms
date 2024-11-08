@@ -238,6 +238,16 @@ macro_rules! value_enum {
 
 
         impl ValueKind {
+            $(pub fn $try_name(self) -> Result<(), TypeMismatch> {
+                match self {
+                    Self::$name => Ok(()),
+                    other => Err(TypeMismatch {
+                        expect: ValueKind::$name,
+                        got: other,
+                    }),
+                }
+            })*
+
             pub const fn name(&self) -> &'static str {
                 match self {
                     $(Self::$name => $str_name),*
@@ -309,12 +319,12 @@ macro_rules! value_enum {
 value_enum! {
     Number => f64 (
         one_name: one_number,
-        try_name: try_number, 
+        try_name: try_number,
         str_name: "number"
     )
     Point => DVec2 (
         one_name: one_point,
-        try_name: try_point, 
+        try_name: try_point,
         str_name: "point"
     )
 }
@@ -348,7 +358,6 @@ impl Value {
             Self::Point(xs) => xs.display(0, &|p| print!("({} {})", p.x, p.y), &|xs| xs.len() > 8),
         }
     }
-
 
     pub fn list(items: Vec<Self>) -> Result<Self, TypeMismatch> {
         let first = items.first();
