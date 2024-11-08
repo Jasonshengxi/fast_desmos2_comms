@@ -278,7 +278,21 @@ macro_rules! value_enum {
         }
 
         #[cfg(feature = "server")]
-        impl OneRef<'_> {
+        impl<'a> OneRef<'a> {
+            $(pub fn $try_name(self) -> Result<&'a $type, TypeMismatch> {
+                match self {
+                    Self::$name(x) => Ok(x),
+                    other => Err(TypeMismatch {
+                        expect: ValueKind::$name,
+                        got: other.kind(),
+                    }),
+                }
+            })*
+
+            pub const fn kind(&self) -> ValueKind {
+                match self { $(Self::$name(_) => ValueKind::$name),* }
+            }
+
             pub fn to_value(self) -> Value {
                 match self {
                     $(Self::$name(&x) => Value::$name(List::Term(x))),*
