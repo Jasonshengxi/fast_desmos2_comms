@@ -157,7 +157,7 @@ impl<T> List<T> {
 
 macro_rules! value_enum {
     (
-        $($name: ident => $type: ident (try_name: $try_name: ident, str_name: $str_name: literal))*
+        $($name: ident => $type: ident (one_name: $one_name: ident, try_name: $try_name: ident, str_name: $str_name: literal))*
     ) =>{
         #[non_exhaustive]
         #[derive(Debug, Clone, PartialEq)]
@@ -217,6 +217,10 @@ macro_rules! value_enum {
 
         #[cfg(feature = "server")]
         impl Value {
+            $(pub fn $one_name(value: $type) -> Self {
+                Self::$name(List::Term(value))
+            })*
+
             $(pub fn $try_name(self) -> Result<List<$type>, TypeMismatch> {
                 match self {
                     Self::$name(x) => Ok(x),
@@ -304,10 +308,12 @@ macro_rules! value_enum {
 
 value_enum! {
     Number => f64 (
+        one_name: one_number,
         try_name: try_number, 
         str_name: "number"
     )
     Point => DVec2 (
+        one_name: one_point,
         try_name: try_point, 
         str_name: "point"
     )
