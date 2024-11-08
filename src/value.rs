@@ -159,23 +159,26 @@ macro_rules! value_enum {
     (
         $($name: ident => $type: ident (try_name: $try_name: ident, str_name: $str_name: literal))*
     ) =>{
+        #[non_exhaustive]
         #[derive(Debug, Clone, PartialEq)]
         pub enum Value {
             $($name(List<$type>)),*
         }
 
-        #[cfg(feature = "server")]
+        #[non_exhaustive]
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
         pub enum ValueKind {
             $($name),*
         }
 
+        #[non_exhaustive]
         #[cfg(feature = "server")]
         #[derive(Debug, Clone, Copy)]
         pub enum ValueRef<'a> {
             $($name(ListRef<'a, $type>)),*
         }
 
+        #[non_exhaustive]
         #[cfg(feature = "server")]
         #[derive(Debug, Clone, Copy)]
         pub enum OneRef<'a> {
@@ -207,6 +210,9 @@ macro_rules! value_enum {
 
                 Ok(())
             }
+            pub const fn kind(&self) -> ValueKind {
+                match self { $(Self::$name(_) => ValueKind::$name),* }
+            }
         }
 
         #[cfg(feature = "server")]
@@ -224,13 +230,9 @@ macro_rules! value_enum {
             pub fn as_ref(&self) -> ValueRef {
                 match self { $(Self::$name(x) => ValueRef::$name(x.as_ref())),* }
             }
-            pub const fn kind(&self) -> ValueKind {
-                match self { $(Self::$name(_) => ValueKind::$name),* }
-            }
         }
 
 
-        #[cfg(feature = "server")]
         impl ValueKind {
             pub const fn name(&self) -> &'static str {
                 match self {
@@ -238,7 +240,23 @@ macro_rules! value_enum {
                 }
             }
         }
+
+        #[cfg(feature = "server")]
         impl<'a> ValueRef<'a> {
+            $(pub fn $try_name(self) -> Result<ListRef<'a, $type>, TypeMismatch> {
+                match self {
+                    Self::$name(x) => Ok(x),
+                    other => Err(TypeMismatch {
+                        expect: ValueKind::$name,
+                        got: other.kind(),
+                    }),
+                }
+            })*
+
+            pub const fn kind(&self) -> ValueKind {
+                match self { $(Self::$name(_) => ValueKind::$name),* }
+            }
+
             #[allow(clippy::len_without_is_empty)]
             pub fn len(&self) -> Option<usize> {
                 match self {
@@ -259,6 +277,7 @@ macro_rules! value_enum {
             }
         }
 
+        #[cfg(feature = "server")]
         impl OneRef<'_> {
             pub fn to_value(self) -> Value {
                 match self {
@@ -280,14 +299,12 @@ value_enum! {
     )
 }
 
-#[cfg(feature = "server")]
 impl Display for ValueKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.name().fmt(f)
     }
 }
 
-#[cfg(feature = "server")]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct TypeMismatch {
     pub expect: ValueKind,
