@@ -61,6 +61,28 @@ pub fn try_cross_iter_many<E>(
     }
 }
 
+pub fn try_iter_many_known<const N: usize, E>(
+    values: [ValueRef; N],
+    mut func: &mut impl FnMut([OneRef; N]) -> Result<Value, E>,
+    error_handling: &impl Fn(TypeMismatch) -> E,
+) -> Result<Value, E> {
+    let max_len = values.iter().filter_map(|val| val.len()).reduce(usize::max);
+
+    if let Some(len) = max_len {
+        let mut result = Value::Number(List::empty());
+
+        for index in 0..len {
+            let new_values = values.map(|val| val.get_at(index));
+            let value = try_iter_many_known(new_values, func, error_handling)?;
+            result.push(value).map_err(error_handling)?;
+        }
+
+        Ok(result)
+    } else {
+        func(values.map(|x| x.try_one_elem().unwrap_or_else(|| unreachable!())))
+    }
+}
+
 pub fn try_iter_many<E>(
     values: Vec<ValueRef>,
     mut func: &mut impl FnMut(Vec<OneRef>) -> Result<Value, E>,
